@@ -131,6 +131,27 @@ tarantool_register_stored_procs! {
 ```lua
   box.schema.func.create('libtarantool_rust_api_example.test_bench', {language = 'C'})  
   box.schema.user.grant('guest', 'execute', 'function', 'libtarantool_rust_api_example.test_iterator')
+
+  ...
+  local capi_connection = net_box:new(3301)
+
+  testPlan:test("iterator test", function(test)
+      init_test_spaces()
+      box.space.test_space:put({ 1, 'test-1row', { a = 1, b = "b" } })
+      box.space.test_space:put({ 2, 'test-2row', { a = 1, b = "b" } })
+      box.space.test_space:put({ 3, 'test-3row', { a = 1, b = "b" } })
+      box.space.test_space:put({ 5, 'test-5row', { a = 1, b = "b" } })
+      box.space.test_space:put({ 6, 'test-51row', { a = 1, b = "b" } })
+      box.space.test_space:put({ 7, 'test-52row', { a = 1, b = "b" } })
+
+      test:plan(2)
+      local res = capi_connection:call('libtarantool_rust_api_example.test_iterator', { 2, "not exist" })
+      test:is(res[1], msgpack.NULL, "value not exist")
+      local res = capi_connection:call('libtarantool_rust_api_example.test_iterator', { 6, ".*5.*" })
+      test:is_deeply(res[1], { { 6, 'test-51row', { a = 1, b = "b" } },{ 7, 'test-52row', { a = 1, b = "b" } }}, "value found ok")
+  end)
+
+
 ```
 
 
