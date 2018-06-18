@@ -81,6 +81,16 @@ pub struct TestStruct {
     pub b: Value,
 }
 
+//serialize TestStruct as a map - not sequence
+impl Serialize for TestStruct {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("a", &self.a)?;
+        map.serialize_entry("b", &self.b)?;
+        map.end()
+    }
+}
+
 //rust struct for tarantool space row
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RowTypeStruct {
@@ -88,7 +98,6 @@ pub struct RowTypeStruct {
     pub name: String,
     pub data: Option<TestStruct>,
 }
-
 
 //stored procedure function, tarantoolContext provides access for tarantool api 
 fn test_iterator_impl(tarantool: &TarantoolContext) -> io::Result< Option<Vec<RowTypeStruct>>> {
