@@ -1,0 +1,24 @@
+[package]
+name = "tarantool_rust_api"
+version = "0.1.0"
+authors = ["mzheludkov"]
+
+[dependencies]
+libc = "0.2.0"
+bytes = "0.4"
+log = "0.4.1"
+env_logger = "0.5.3"
+byteorder = "1.1.0"
+
+serde = "1"
+serde_derive = "1.0"
+rmp = "0.8"
+rmp-serde = { git = "https://github.com/3Hren/msgpack-rust" }
+rmp-serialize = { git = "https://github.com/3Hren/msgpack-rust" }
+rmpv = { git = "https://github.com/3Hren/msgpack-rust" }
+base64 = "0.2.1"
+
+[dev-dependencies]
+
+
+

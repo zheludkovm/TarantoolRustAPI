@@ -1,0 +1,18 @@
+[package]
+name = "tarantool_rust_api_example"
+version = "0.1.0"
+authors = ["mzheludkov <mzheludkov@at-consulting.ru>"]
+
+[lib]
+name = "tarantool_rust_api_example"
+path = "src/lib.rs"
+crate-type = ["dylib"]
+
+[dependencies]
+tarantool_rust_api = {path=".."}
+
+serde = "1"
+serde_derive = "1.0"
+serde_json = "1.0"
+regex = "0.2"
+
