@@ -127,7 +127,7 @@ tarantool_register_stored_procs! {
 
 ```
 
-###Tarantool init script 
+### Tarantool init script 
 ```lua
   box.schema.func.create('libtarantool_rust_api_example.test_bench', {language = 'C'})  
   box.schema.user.grant('guest', 'execute', 'function', 'libtarantool_rust_api_example.test_iterator')
