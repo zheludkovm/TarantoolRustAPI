@@ -168,7 +168,7 @@ pub fn lua_tolstring_wrapper(lua_state: *const c_int) -> io::Result<String> {
     }
 }
 
-
+#[allow(dead_code)]
 pub fn get_space_id<S>(space_name: S) -> io::Result<u32>
     where S: AsRef<[u8]>
 {
@@ -183,7 +183,7 @@ pub fn get_space_id<S>(space_name: S) -> io::Result<u32>
     }
 }
 
-
+#[allow(dead_code)]
 pub fn get_index_id<S, S1>(space_name: S, space_id: u32, index_name: S1) -> io::Result<u32>
     where S: AsRef<[u8]>,
           S1: AsRef<[u8]>
@@ -199,6 +199,7 @@ pub fn get_index_id<S, S1>(space_name: S, space_id: u32, index_name: S1) -> io::
     }
 }
 
+#[allow(dead_code)]
 pub fn get_space_and_index_id<S,S1>(space_name: S,index_name: S1) -> io::Result<(u32,u32)>
     where S: AsRef<[u8]>,
           S1: AsRef<[u8]>

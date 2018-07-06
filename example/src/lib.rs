@@ -58,7 +58,9 @@ pub struct RowTypeStruct {
 
 pub fn test_insert_impl(tarantool: &TarantoolContext) -> io::Result<bool> {
     let val: RowTypeStruct = tarantool.decode_input_params()?;
+    tarantool.txn_begin()?;
     tarantool.insert(TEST_SPACE, &val)?;
+    tarantool.txn_commit()?;
     Ok(true)
 }
 

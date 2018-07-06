@@ -60,6 +60,10 @@ pub enum FieldType {
     MAX = 9,
 }
 
+const SEARCH_SPACE_ID:u32 = 280;
+const SEARCH_INDEX_ID:u32 = 2;
+const SEARCH_SPACE_INDEX_ID:u32 = 288;
+const SEARCH_SPACE_INDEX_INDEX_ID:u32 = 2;
 
 #[repr(C)]
 pub struct StoredProcCtxVal {
@@ -376,7 +380,37 @@ impl TarantoolContext {
     }
 
 
-    pub fn decode_input_params<'de, T>(self: &TarantoolContext) -> io::Result<T>
+
+    pub fn get_space_id<S>(self: &Self, space_name: S) -> io::Result<u32>
+        where S: AsRef<[u8]>
+    {
+        unsafe {
+            let space_name_str = from_utf8_unchecked(space_name.as_ref());
+            let row = self.index_get_int(SEARCH_SPACE_ID, SEARCH_INDEX_ID, &(space_name_str, ))?;
+            return row.decode_field(0)?.ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, format!("Unknown space name {}!", space_name_str))
+            });
+        }
+    }
+
+    pub fn get_space_and_index_id<S,S1>(self: &Self,space_name: S,index_name: S1) -> io::Result<(u32,u32)>
+        where S: AsRef<[u8]>,
+              S1: AsRef<[u8]>
+    {
+        unsafe {
+            let space_id = self.get_space_id(&space_name)?;
+            let index_name_str = from_utf8_unchecked(index_name.as_ref());
+            let row = self.index_get_int(SEARCH_SPACE_INDEX_ID, SEARCH_SPACE_INDEX_INDEX_ID, &(space_id, index_name_str))?;
+            let index_id:u32 = row.decode_field(1)?.ok_or_else(|| {
+                io::Error::new(io::ErrorKind::Other, format!("Unknown index name {}!", index_name_str))
+            })?;
+            return Ok((space_id,index_id));
+        }
+
+    }
+
+
+    pub fn decode_input_params<'de, T>(self: &Self) -> io::Result<T>
         where T: Deserialize<'de>
     {
         unsafe {
@@ -401,7 +435,7 @@ impl TarantoolContext {
               S1: AsRef<[u8]>
     {
         unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
+            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
 
             let (ptr_start, ptr_end, params) = serialize_to_ptr(key)?;
             let iter = box_index_iterator(space_id, index_id, iterator_type as u8, ptr_start, ptr_end);
@@ -418,7 +452,7 @@ impl TarantoolContext {
     {
         unsafe {
             let (ptr_start, ptr_end, _params) = serialize_to_ptr(value)?;
-            let space_id = get_space_id(&space_name)?;
+            let space_id = self.get_space_id(&space_name)?;
             let res = box_insert(space_id, ptr_start, ptr_end, ptr::null_mut());
             if res == -1 {
                 return make_error(format!("error on insert! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
@@ -433,7 +467,7 @@ impl TarantoolContext {
     {
         unsafe {
             let (ptr_start, ptr_end, _params) = serialize_to_ptr(value)?;
-            let space_id = get_space_id(&space_name)?;
+            let space_id = self.get_space_id(&space_name)?;
             let res = box_replace(space_id, ptr_start, ptr_end, ptr::null_mut());
             if res == -1 {
                 return make_error(format!("error on replace! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
@@ -448,7 +482,7 @@ impl TarantoolContext {
               S1: AsRef<[u8]>
     {
         unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
+            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
 
             let (ptr_start, ptr_end, _params) = serialize_to_ptr(key)?;
 
@@ -467,7 +501,7 @@ impl TarantoolContext {
               S1: AsRef<[u8]>
     {
         unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
+            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
 
             let (key_ptr_start, key_ptr_end, _key_params) = serialize_to_ptr(key)?;
             let (ops_ptr_start, ops_ptr_end, _ops_params) = serialize_to_ptr(ops)?;
@@ -487,7 +521,7 @@ impl TarantoolContext {
               S1: AsRef<[u8]>
     {
         unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
+            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
 
             let (tuple_ptr_start, tuple_ptr_end, _tuple_params) = serialize_to_ptr(tuple)?;
             let (ops_ptr_start, ops_ptr_end, _ops_params) = serialize_to_ptr(ops)?;
@@ -504,7 +538,7 @@ impl TarantoolContext {
         where S: AsRef<[u8]>
     {
         unsafe {
-            let space_id = get_space_id(&space_name)?;
+            let space_id = self.get_space_id(&space_name)?;
 
             let res = box_truncate(space_id);
             if res == -1 {
@@ -527,6 +561,37 @@ impl TarantoolContext {
         }
     }
 
+    fn index_get_any_int<'a, SER>(self: &'a Self,
+                                  space_id:u32,
+                                  index_id:u32,
+                                  key: &SER,
+                                  f: unsafe extern "C" fn(u32, u32, *const c_uchar, *const c_uchar, *mut (*mut c_uchar)) -> c_int) -> io::Result<Option<TarantoolTuple>>
+        where SER: Serialize
+
+    {
+        unsafe {
+
+            let (key_start, key_end, _params) = serialize_to_ptr(key)?;
+            let mut res_tuple: *mut u8 = mem::uninitialized();
+
+            let res = f(space_id, index_id, key_start, key_end, &mut res_tuple);
+            if res == -1 {
+                return make_error(format!("error on get data ! space name={} index name={} ", space_id, index_id));
+            }
+            if res_tuple as usize == NULL {
+                return Ok(None);
+            }
+
+            Ok(Some(TarantoolTuple::new(res_tuple, PhantomData)))
+        }
+    }
+
+    pub fn index_get_int<'a, SER>(self: &'a Self, space_id:u32, index_id:u32, key: &SER) -> io::Result<Option<TarantoolTuple>>
+        where SER: Serialize
+    {
+        self.index_get_any_int(space_id, index_id, key, box_index_get)
+    }
+
 
     fn index_get_any<'a, SER, S, S1>(self: &'a Self,
                                      space_name: S,
@@ -538,22 +603,8 @@ impl TarantoolContext {
               S1: AsRef<[u8]>,
 
     {
-        unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
-
-            let (key_start, key_end, _params) = serialize_to_ptr(key)?;
-            let mut res_tuple: *mut u8 = mem::uninitialized();
-
-            let res = f(space_id, index_id, key_start, key_end, &mut res_tuple);
-            if res == -1 {
-                return make_error(format!("error on get data ! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
-            }
-            if res_tuple as usize==NULL {
-               return Ok(None)
-            }
-
-            Ok(Some(TarantoolTuple::new(res_tuple, PhantomData)))
-        }
+        let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
+        self.index_get_any_int(space_id, index_id, key, f)
     }
 
     pub fn index_get<'a, SER, S, S1>(self: &'a Self, space_name: S, index_name: S1, key: &SER) -> io::Result<Option<TarantoolTuple>>
@@ -586,7 +637,7 @@ impl TarantoolContext {
               S1: AsRef<[u8]>
     {
         unsafe {
-            let (space_id, index_id) = get_space_and_index_id(&space_name, &index_name)?;
+            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
 
             let (key_start, key_end, _params) = serialize_to_ptr(key)?;
 
