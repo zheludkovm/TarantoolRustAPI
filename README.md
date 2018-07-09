@@ -51,8 +51,10 @@ impl Serialize for TestStruct {
 
 ### Some notes on getting space and index id by names :
 Internaly taratool use id of spaces for all operations
-we use '_space' and '_index' spaces for this puprose and get space id and index id before every call;
-for performance you can use following lua code to store internal cache to ids and refresh by trigger
+
+we use '_space' and '_index' spaces for this puprose internally TarantoolRustApi get space id and index id before every call;
+
+for better performance you can use following lua code to store internal cache to ids and refresh by trigger
 
 ```lua
 local ffi = require('ffi')
