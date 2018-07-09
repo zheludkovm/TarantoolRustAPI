@@ -28,6 +28,11 @@ macro_rules! tarantool_register_stored_procs {
                 return tarantool.return_tuple($impl_fn(&tarantool), None);
             }
         )*
+
+        #[no_mangle]
+        pub fn init_dictionaries_ffi(){
+            init_dictionaries().unwrap();
+        }
     };
 }
 

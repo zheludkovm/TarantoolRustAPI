@@ -86,6 +86,15 @@ function test_lua_search(country_name, region, sub_region)
     return {result};
 end
 
+local ffi = require('ffi')
+ffi.cdef[[
+        void init_dictionaries_ffi();
+    ]]
+rust = ffi.load('./libtarantool_rust_api_example.so')
+rust.init_dictionaries_ffi();
+local refresh_dict_fn = function() rust.init_dictionaries_ffi(); end;
+box.space._space:on_replace(refresh_dict_fn);
+box.space._index:on_replace(refresh_dict_fn);
 
 print("call rust !",json.encode(capi_connection:call('libtarantool_rust_api_example.test_bench', {'RU','EUR', msgpack.NULL})))
 print("call lua!",json.encode(capi_connection:call('test_lua_search', {'RU','EUR', msgpack.NULL})))

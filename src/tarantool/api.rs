@@ -13,6 +13,7 @@ use std::mem;
 use std::ptr;
 use std::slice;
 use std::str::from_utf8_unchecked;
+use tarantool::dict::*;
 use tarantool::internal::*;
 use tarantool::internal::StackValueType;
 
@@ -62,6 +63,7 @@ pub enum FieldType {
 
 const SEARCH_SPACE_ID:u32 = 280;
 const SEARCH_INDEX_ID:u32 = 2;
+const SEARCH_PRIMARY_INDEX:u32 = 0;
 const SEARCH_SPACE_INDEX_ID:u32 = 288;
 const SEARCH_SPACE_INDEX_INDEX_ID:u32 = 2;
 
@@ -373,6 +375,10 @@ pub struct TarantoolContext {
 }
 
 impl TarantoolContext {
+    fn new_ffi() -> TarantoolContext {
+        TarantoolContext { context:NULL as StoredProcCtx,args: NULL as StoredProcArgs,args_end: NULL as StoredProcArgsEnd }
+    }
+
     pub fn new(context: StoredProcCtx,
                args: StoredProcArgs,
                args_end: StoredProcArgsEnd) -> TarantoolContext {
@@ -386,6 +392,9 @@ impl TarantoolContext {
     {
         unsafe {
             let space_name_str = from_utf8_unchecked(space_name.as_ref());
+            if let Some(id) = search_space_id(space_name_str) {
+                return Ok(id);
+            };
             let row = self.index_get_int(SEARCH_SPACE_ID, SEARCH_INDEX_ID, &(space_name_str, ))?;
             return row.decode_field(0)?.ok_or_else(|| {
                 io::Error::new(io::ErrorKind::Other, format!("Unknown space name {}!", space_name_str))
@@ -400,6 +409,10 @@ impl TarantoolContext {
         unsafe {
             let space_id = self.get_space_id(&space_name)?;
             let index_name_str = from_utf8_unchecked(index_name.as_ref());
+            if let Some(index_id) = search_index_id(space_id, index_name_str) {
+                return Ok((space_id, index_id));
+            };
+
             let row = self.index_get_int(SEARCH_SPACE_INDEX_ID, SEARCH_SPACE_INDEX_INDEX_ID, &(space_id, index_name_str))?;
             let index_id:u32 = row.decode_field(1)?.ok_or_else(|| {
                 io::Error::new(io::ErrorKind::Other, format!("Unknown index name {}!", index_name_str))
@@ -434,9 +447,16 @@ impl TarantoolContext {
               S: AsRef<[u8]>,
               S1: AsRef<[u8]>
     {
-        unsafe {
-            let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
+        let (space_id, index_id) = self.get_space_and_index_id(&space_name, &index_name)?;
+        self.index_iterator_raw(space_name, index_name, space_id, index_id, iterator_type, key)
+    }
 
+    pub fn index_iterator_raw<'a, SER, S, S1>(self: &'a Self,space_name: S, index_name: S1, space_id: u32, index_id: u32, iterator_type: IteratorType, key: &SER) -> io::Result<TarantoolIterator>
+        where SER: Serialize,
+                S: AsRef<[u8]>,
+                S1: AsRef<[u8]>
+    {
+        unsafe {
             let (ptr_start, ptr_end, params) = serialize_to_ptr(key)?;
             let iter = box_index_iterator(space_id, index_id, iterator_type as u8, ptr_start, ptr_end);
             if iter as usize == NULL {
@@ -773,5 +793,28 @@ pub fn serialize_to_buf_mut<W: io::Write, S: Serialize>(wr: &mut W, v: &S) -> io
 //    v.serialize(&mut Serializer::new(wr).with_struct_map().with_struct_map()).map_err(map_err_to_io)
     v.serialize(&mut Serializer::new(wr)).map_err(map_err_to_io)
 }
+
+
+pub fn init_dictionaries()-> io::Result<()> {
+    let tarantool = TarantoolContext::new_ffi();
+    clear_dictionaries();
+
+    for raw_row in tarantool.index_iterator_raw("_space","primary", SEARCH_SPACE_ID, SEARCH_PRIMARY_INDEX, IteratorType::ALL, &NO_KEY_SEQ)? {
+        let row = raw_row?;
+        let id: u32 = row.decode_field(0)?;
+        let name: String = row.decode_field(2)?;
+        add_space_dict_entry(id, name)?;
+    };
+
+    for raw_row in tarantool.index_iterator_raw("_index","primary", SEARCH_SPACE_INDEX_ID, SEARCH_PRIMARY_INDEX, IteratorType::ALL, &NO_KEY_SEQ)? {
+        let row = raw_row?;
+        let space_id: u32 = row.decode_field(0)?;
+        let index_id: u32 = row.decode_field(1)?;
+        let index_name: String = row.decode_field(2)?;
+        add_space_index_dict_entry(space_id, index_id, index_name)?;
+    };
+    Ok(())
+}
+
 
 

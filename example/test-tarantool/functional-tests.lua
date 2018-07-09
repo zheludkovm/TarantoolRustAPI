@@ -26,6 +26,17 @@ box.cfg {
     background = false;
     pid_file = 'rust.pid';
 }
+
+local ffi = require('ffi')
+ffi.cdef[[
+        void init_dictionaries_ffi();
+    ]]
+rust = ffi.load('./libtarantool_rust_api_example.so')
+rust.init_dictionaries_ffi();
+local refresh_dict_fn = function() rust.init_dictionaries_ffi(); end;
+box.space._space:on_replace(refresh_dict_fn);
+box.space._index:on_replace(refresh_dict_fn);
+
 local function grantRightsToFunction(fnName)
     box.schema.func.create(fnName, { language = 'C' })
     box.schema.user.grant('guest', 'execute', 'function', fnName)
@@ -46,6 +57,7 @@ local function bootstrap()
     grantRightsToFunction('libtarantool_rust_api_example.test_min_max_count');
     grantRightsToFunction('libtarantool_rust_api_example.test_truncate');
     grantRightsToFunction('libtarantool_rust_api_example.test_lua_call');
+    grantRightsToFunction('libtarantool_rust_api_example.test_get_space_id');
 end
 
 box.once('grants3', bootstrap)
@@ -55,7 +67,7 @@ local function init_test_spaces()
     if (box.space.test_space ~= nil) then
         box.space.test_space:drop();
     end
-    box.schema.create_space('test_space', { id = 1000, engine = 'memtx' })
+    box.schema.create_space('test_space', { engine = 'memtx' })
     box.space.test_space:create_index('primary', { type = 'tree', parts = { 1, 'number' } })
     box.space.test_space:create_index('secondary', { type = 'tree', parts = { 2, 'string' } })
     if (box.sequence.test_seq ~= nil) then
@@ -74,7 +86,7 @@ local capi_connection = net_box:new(3301)
 
 
 local testPlan = tap.test("test plan")
-testPlan:plan(10)
+testPlan:plan(11)
 testPlan:test("insert test", function(test)
     test:plan(3)
     init_test_spaces()
@@ -188,6 +200,17 @@ testPlan:test("call lua function test", function(test)
     test:is(res[3],  3, "return number is ok")
     test:is(res[4],  true, "return bool is ok")
     test:is(res[5],  nil, "return nil is ok")
+end)
+
+testPlan:test("call sync dict test", function(test)
+    init_test_spaces();
+
+    test:plan(2)
+    local res = capi_connection:call('libtarantool_rust_api_example.test_get_space_id', { "test_space" })
+    test:is(res[1],  box.space._space.index.name:get("test_space")[1], "space id is ok")
+    init_test_spaces();
+    local res = capi_connection:call('libtarantool_rust_api_example.test_get_space_id', { "test_space" })
+    test:is(res[1],  box.space._space.index.name:get("test_space")[1], "space id is ok")
 end)
 
 

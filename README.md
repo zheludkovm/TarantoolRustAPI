@@ -49,6 +49,23 @@ impl Serialize for TestStruct {
 }
 ```
 
+### Some notes on getting space and index id by names :
+Internaly taratool use id of spaces for all operations
+we use '_space' and '_index' spaces for this puprose and get space id and index id before every call;
+for performance you can use following lua code to store internal cache to ids and refresh by trigger
+
+```lua
+local ffi = require('ffi')
+  ffi.cdef[[
+          void init_dictionaries_ffi();
+      ]]
+  rust = ffi.load('./libtarantool_rust_api_example.so')
+  rust.init_dictionaries_ffi();
+  local refresh_dict_fn = function() rust.init_dictionaries_ffi(); end;
+  box.space._space:on_replace(refresh_dict_fn);
+  box.space._index:on_replace(refresh_dict_fn);
+```
+
 
 ## Example RUST Stored procedure
 
@@ -138,6 +155,18 @@ tarantool_register_stored_procs! {
 
 ### Tarantool init script 
 ```lua
+  //init space dictionary, add trigger
+  local ffi = require('ffi')
+  ffi.cdef[[
+          void init_dictionaries_ffi();
+      ]]
+  rust = ffi.load('./libtarantool_rust_api_example.so')
+  rust.init_dictionaries_ffi();
+  local refresh_dict_fn = function() rust.init_dictionaries_ffi(); end;
+  box.space._space:on_replace(refresh_dict_fn);
+  box.space._index:on_replace(refresh_dict_fn);
+
+  //register stored procedure and give user rights
   box.schema.func.create('libtarantool_rust_api_example.test_bench', {language = 'C'})  
   box.schema.user.grant('guest', 'execute', 'function', 'libtarantool_rust_api_example.test_iterator')
 

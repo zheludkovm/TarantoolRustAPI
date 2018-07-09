@@ -209,6 +209,11 @@ fn test_bench_impl(tarantool: &TarantoolContext) -> io::Result<Vec<CountryData>>
     Ok(result)
 }
 
+fn test_get_space_id_impl(tarantool: &TarantoolContext) -> io::Result<u32> {
+    let (space_name,) : (String,) = tarantool.decode_input_params()?;
+    return tarantool.get_space_id(space_name);
+}
+
 tarantool_register_stored_procs! {
     test_insert => test_insert_impl,
     test_index_get => test_index_get_impl,
@@ -220,7 +225,8 @@ tarantool_register_stored_procs! {
     test_min_max_count => test_min_max_count_impl,
     test_truncate => test_truncate_impl,
     test_lua_call => test_lua_call_impl,
-    test_bench => test_bench_impl
+    test_bench => test_bench_impl,
+    test_get_space_id => test_get_space_id_impl
 }
 
 
