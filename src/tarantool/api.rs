@@ -188,7 +188,7 @@ impl<'ctx> Iterator for TarantoolIterator<'ctx> {
             let mut ptr_buffer: *mut u8 = mem::uninitialized();
             let r = box_iterator_next(self.data, &mut ptr_buffer);
             if r == -1 {
-                return Option::Some(Err(io::Error::new(io::ErrorKind::Other, "error on receive iterator next value")));
+                return Option::Some(make_error_result(format!("error on receive iterator next value")));
             }
 
             if ptr_buffer.is_null() {
@@ -314,7 +314,7 @@ impl<'ctx> LuaCall<'ctx> {
     pub fn call(self: &Self) -> io::Result<()> {
         unsafe {
             if luaT_call(self.lua_state, self.parameters_count, -1) != 0 {
-                return make_error(format!("error on call stored proc!  ", ));
+                return make_error_result(format!("error on call stored proc!  ", ));
             }
         }
         Ok(())
@@ -330,7 +330,7 @@ impl<'ctx> LuaCall<'ctx> {
                     lua_pop_and_return(self.lua_state, Some(res?))
                 }
                 v if v == LUA_TNIL => lua_pop_and_return(self.lua_state, None),
-                _ => make_error(format!("Incorrect type of result!  expecting {:?} receive {:?}", expecting_type.to_string(), StackValueType::raw_to_string(stack_value_type as u32))),
+                _ => make_error_result(format!("Incorrect type of result!  expecting {:?} receive {:?}", expecting_type.to_string(), StackValueType::raw_to_string(stack_value_type as u32))),
             }
         }
     }
@@ -356,7 +356,7 @@ impl<'ctx> LuaCall<'ctx> {
         unsafe {
             let res_tuple = luaT_istuple(lua_state, PREV_VALUE_IN_STACK);
             if res_tuple as usize == NULL {
-                return make_error(format!("No tuple as ret param!", ));
+                return make_error_result(format!("No tuple as ret param!", ));
             }
             Ok(TarantoolTuple::new(res_tuple, PhantomData))
         }
@@ -397,7 +397,8 @@ impl TarantoolContext {
             };
             let row = self.index_get_int(SEARCH_SPACE_ID, SEARCH_INDEX_ID, &(space_name_str, ))?;
             return row.decode_field(0)?.ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, format!("Unknown space name {}!", space_name_str))
+//                io::Error::new(io::ErrorKind::Other, format!("Unknown space name {}!\n{}", space_name_str, make_trace()))
+                make_error(format!("Unknown space name {}!", space_name_str), false)
             });
         }
     }
@@ -415,7 +416,8 @@ impl TarantoolContext {
 
             let row = self.index_get_int(SEARCH_SPACE_INDEX_ID, SEARCH_SPACE_INDEX_INDEX_ID, &(space_id, index_name_str))?;
             let index_id:u32 = row.decode_field(1)?.ok_or_else(|| {
-                io::Error::new(io::ErrorKind::Other, format!("Unknown index name {}!", index_name_str))
+//                io::Error::new(io::ErrorKind::Other, format!("Unknown index name {}!\n{}", index_name_str,make_trace()))
+                make_error(format!("Unknown index name {}!", index_name_str),false)
             })?;
             return Ok((space_id,index_id));
         }
@@ -430,7 +432,8 @@ impl TarantoolContext {
             let size = self.args_end as usize - self.args as usize;
             let slice = slice::from_raw_parts(self.args as *const u8, size);
             decode_serde(slice).map_err(|_e| {
-                io::Error::new(io::ErrorKind::Other, "Can't decode input parameters of Rust stored procedure ! Incorrect format of input message!")
+//                io::Error::new(io::ErrorKind::Other, format!("Can't decode input parameters of Rust stored procedure ! Incorrect format of input message!\n{}",make_trace()))
+                make_error(format!("Can't decode input parameters of Rust stored procedure ! Incorrect format of input message!"), false)
             })
         }
     }
@@ -460,7 +463,7 @@ impl TarantoolContext {
             let (ptr_start, ptr_end, params) = serialize_to_ptr(key)?;
             let iter = box_index_iterator(space_id, index_id, iterator_type as u8, ptr_start, ptr_end);
             if iter as usize == NULL {
-                return make_error(format!("space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
+                return make_error_result(format!("space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
             }
             Ok(TarantoolIterator::new(iter, params, self))
         }
@@ -475,7 +478,7 @@ impl TarantoolContext {
             let space_id = self.get_space_id(&space_name)?;
             let res = box_insert(space_id, ptr_start, ptr_end, ptr::null_mut());
             if res == -1 {
-                return make_error(format!("error on insert! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
+                return make_error_result(format!("error on insert! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
             }
             Ok(())
         }
@@ -490,7 +493,7 @@ impl TarantoolContext {
             let space_id = self.get_space_id(&space_name)?;
             let res = box_replace(space_id, ptr_start, ptr_end, ptr::null_mut());
             if res == -1 {
-                return make_error(format!("error on replace! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
+                return make_error_result(format!("error on replace! space name={:?} ", from_utf8_unchecked(space_name.as_ref())));
             }
             Ok(())
         }
@@ -508,7 +511,7 @@ impl TarantoolContext {
 
             let res = box_delete(space_id, index_id, ptr_start, ptr_end, ptr::null_mut());
             if res == -1 {
-                return make_error(format!("error on delete! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
+                return make_error_result(format!("error on delete! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
             }
             Ok(())
         }
@@ -528,7 +531,7 @@ impl TarantoolContext {
 
             let res = box_update(space_id, index_id, key_ptr_start, key_ptr_end, ops_ptr_start, ops_ptr_end, index_base as i32, ptr::null_mut());
             if res == -1 {
-                return make_error(format!("error on update! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
+                return make_error_result(format!("error on update! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
             }
             Ok(())
         }
@@ -548,7 +551,7 @@ impl TarantoolContext {
 
             let res = box_upsert(space_id, index_id, tuple_ptr_start, tuple_ptr_end, ops_ptr_start, ops_ptr_end, index_base as i32, ptr::null_mut());
             if res == -1 {
-                return make_error(format!("error on upsert! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
+                return make_error_result(format!("error on upsert! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
             }
             Ok(())
         }
@@ -562,7 +565,7 @@ impl TarantoolContext {
 
             let res = box_truncate(space_id);
             if res == -1 {
-                return make_error(format!("error on truncate space! space name={}  ", from_utf8_unchecked(space_name.as_ref())));
+                return make_error_result(format!("error on truncate space! space name={}  ", from_utf8_unchecked(space_name.as_ref())));
             }
             Ok(())
         }
@@ -575,7 +578,7 @@ impl TarantoolContext {
             let next_value: i64 = 0;
             let res = box_sequence_next(2, &next_value);
             if res == -1 {
-                return make_error(format!("error on get sequence value! sequnce name={}  ", from_utf8_unchecked(sequence_name.as_ref())));
+                return make_error_result(format!("error on get sequence value! sequnce name={}  ", from_utf8_unchecked(sequence_name.as_ref())));
             }
             Ok(next_value)
         }
@@ -596,7 +599,7 @@ impl TarantoolContext {
 
             let res = f(space_id, index_id, key_start, key_end, &mut res_tuple);
             if res == -1 {
-                return make_error(format!("error on get data ! space name={} index name={} ", space_id, index_id));
+                return make_error_result(format!("error on get data!"));
             }
             if res_tuple as usize == NULL {
                 return Ok(None);
@@ -609,7 +612,7 @@ impl TarantoolContext {
     pub fn index_get_int<'a, SER>(self: &'a Self, space_id:u32, index_id:u32, key: &SER) -> io::Result<Option<TarantoolTuple>>
         where SER: Serialize
     {
-        self.index_get_any_int(space_id, index_id, key, box_index_get)
+        self.index_get_any_int(space_id, index_id,key, box_index_get)
     }
 
 
@@ -663,7 +666,7 @@ impl TarantoolContext {
 
             let res = box_index_count(space_id, index_id, iterator_type as u8, key_start, key_end);
             if res == -1 {
-                return make_error(format!("error on index count! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
+                return make_error_result(format!("error on index count! space name={} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name.as_ref())));
             }
             Ok(res)
         }
@@ -678,7 +681,7 @@ impl TarantoolContext {
     pub fn txn_begin(self: &Self) -> io::Result<()> {
         unsafe {
             match box_txn_begin() {
-                -1 => make_error(format!("error on begin tranaction ")),
+                -1 => make_error_result(format!("error on begin tranaction ")),
                 _ => Ok(())
             }
         }
@@ -687,7 +690,7 @@ impl TarantoolContext {
     pub fn txn_commit(self: &Self) -> io::Result<()> {
         unsafe {
             match box_txn_commit() {
-                -1 => make_error(format!("error on begin tranaction ")),
+                -1 => make_error_result(format!("error on begin tranaction ")),
                 _ => Ok(())
             }
         }
@@ -696,7 +699,7 @@ impl TarantoolContext {
     pub fn txn_rollback(self: &Self) -> io::Result<()> {
         unsafe {
             match box_txn_rollback() {
-                -1 => make_error(format!("error on begin tranaction ")),
+                -1 => make_error_result(format!("error on begin tranaction ")),
                 _ => Ok(())
             }
         }
@@ -736,7 +739,7 @@ impl TarantoolContext {
                     let (ptr_start, ptr_end, _buf) = serialize_to_ptr(value).unwrap();
                     let tuple = box_tuple_new(tuple_format, ptr_start, ptr_end);
                     if tuple as usize == NULL {
-                        make_error::<String>(format!("error on create tuple!")).unwrap();
+                        make_error_result::<String>(format!("error on create tuple!")).unwrap();
                     }
                     let res = box_return_tuple(self.context as *const u8, tuple);
                     return res;

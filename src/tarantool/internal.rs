@@ -4,6 +4,7 @@ use std::ffi::{CStr, CString};
 use std::io;
 use std::slice;
 use std::str::from_utf8_unchecked;
+use backtrace;
 
 #[allow(unused_variables)]
 
@@ -176,7 +177,7 @@ pub fn get_space_id<S>(space_name: S) -> io::Result<u32>
         let space_name_b = space_name.as_ref();
         let space_id = box_space_id_by_name(space_name_b.as_ptr(), space_name_b.len() as u32);
         if space_id == BOX_ID_NIL {
-            return make_error(format!("unknown space name! space name={}", from_utf8_unchecked(space_name_b)));
+            return make_error_result(format!("unknown space name! space name={}", from_utf8_unchecked(space_name_b)));
         } else {
             return Ok(space_id);
         }
@@ -192,7 +193,7 @@ pub fn get_index_id<S, S1>(space_name: S, space_id: u32, index_name: S1) -> io::
         let index_name_b = index_name.as_ref();
         let index_id = box_index_id_by_name(space_id, index_name_b.as_ptr(), index_name_b.len() as u32);
         if index_id == BOX_ID_NIL {
-            return make_error(format!("unknown index name! space name={:?} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name_b)));
+            return make_error_result(format!("unknown index name! space name={:?} index name={} ", from_utf8_unchecked(space_name.as_ref()), from_utf8_unchecked(index_name_b)));
         } else {
             return Ok(index_id);
         }
@@ -216,17 +217,56 @@ pub fn set_last_error_wrapper(message: &str) -> io::Result<()> {
     Ok(())
 }
 
-pub fn make_error<T>(additional_message: String) -> io::Result<T> {
+pub fn make_error_result<T>(additional_message: String) -> io::Result<T> {
+    Err(make_error(additional_message, true))
+}
+pub fn make_error(additional_message: String, check_box_error_last:bool) -> io::Error {
     unsafe {
-        let box_error = box_error_last();
-        if box_error as usize == 0 {
-            Err(io::Error::new(io::ErrorKind::Other, additional_message))
+        if !check_box_error_last {
+            io::Error::new(io::ErrorKind::Other, format!("{}\n{}", additional_message, make_trace()))
         } else {
-            let message = box_error_message(box_error);
-            let error_message = CStr::from_ptr(message).to_str().map_err(map_err_to_io)?;
-            Err(io::Error::new(io::ErrorKind::Other, format!("{}, additional info : {}", error_message, additional_message)))
+            let box_error = box_error_last();
+            if box_error as usize == 0 {
+                io::Error::new(io::ErrorKind::Other, format!("{}\n{}", additional_message, make_trace()))
+            } else {
+                let message = box_error_message(box_error);
+                let error_message = CStr::from_ptr(message).to_str().map_err(map_err_to_io).unwrap_or("cant't decode tarantool error as cstr!");
+
+                io::Error::new(io::ErrorKind::Other, format!("{}, additional info : {}\n{}", error_message, additional_message, make_trace()))
+            }
         }
     }
+}
+
+
+
+pub fn make_trace() -> String {
+    let current_backtrace = backtrace::Backtrace::new();
+    current_backtrace.frames().iter().map(|frame|{
+        frame.symbols().iter().map(|symbol| {
+            let mut line = String::new();
+
+            if let Some(name) = symbol.name() {
+                line.push_str(&format!("    {}",name));
+            }
+            if let Some(filename) = symbol.filename() {
+                line.push_str(&format!(" at {:?}",filename));
+            }
+            if let Some(lineno) = symbol.lineno() {
+                line.push_str(&format!(":{}",lineno));
+            }
+
+            if !line.contains("backtrace") && !line.contains("tarantool_rust_api::") {
+                line.push('\n');
+                line
+            } else {
+                String::new()
+            }
+        }).collect::<Vec<_>>()
+            .concat()
+    })
+        .collect::<Vec<_>>()
+        .concat()
 }
 
 pub fn map_err_to_io<E>(e: E) -> io::Error

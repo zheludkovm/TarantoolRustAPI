@@ -14,6 +14,7 @@ extern crate log;
 extern crate env_logger;
 #[macro_use]
 extern crate lazy_static;
+extern crate backtrace;
 
 pub mod tarantool;
 
