@@ -13,9 +13,9 @@ byteorder = "1.1.0"
 serde = "1"
 serde_derive = "1.0"
 rmp = "0.8"
-rmp-serde = { git = "https://github.com/3Hren/msgpack-rust" }
-rmp-serialize = { git = "https://github.com/3Hren/msgpack-rust" }
-rmpv = { git = "https://github.com/3Hren/msgpack-rust" }
+rmp-serde = "0.13"
+rmp-serialize = "0.8"
+rmpv = { version = "0.4", features = ["with-serde"] }
 base64 = "0.2.1"
 lazy_static = "1.0.1"
 backtrace = "0.3"
