@@ -116,6 +116,16 @@ impl<'ctx> TarantoolTuple<'ctx> {
             phantom: PhantomData,
         }
     }
+
+    pub fn get_raw_data(self: &TarantoolTuple<'ctx>) -> Vec<u8> {
+        unsafe {
+            let size = box_tuple_bsize(self.row_data);
+            let row_buf: Vec<u8> = vec![0; size];
+
+            let _real_size = box_tuple_to_buf(self.row_data, row_buf.as_ptr(), size);
+            row_buf
+        }
+    }
 }
 
 impl<'ctx>  Decodable<'ctx> for TarantoolTuple<'ctx> {
@@ -776,7 +786,7 @@ pub fn exec_stored_procedure_with_format<F, SER>(
 }
 
 
-fn decode_serde<'de, T, R>(r: R) -> io::Result<T>
+pub fn decode_serde<'de, T, R>(r: R) -> io::Result<T>
     where T: Deserialize<'de>, R: io::Read
 {
     Deserialize::deserialize(&mut Deserializer::new(r)).map_err(map_err_to_io)

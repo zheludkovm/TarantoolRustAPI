@@ -78,6 +78,17 @@ fn test_index_get_impl(tarantool: &TarantoolContext) -> io::Result<Option<RowTyp
     }
 }
 
+fn test_index_get_raw_impl(tarantool: &TarantoolContext) -> io::Result<Option<RowTypeStruct>> {
+    let key: (u32, ) = tarantool.decode_input_params()?;
+    match tarantool.index_get(TEST_SPACE, PRIMARY_INDEX, &key)? {
+        Some(tuple) => {
+            let buf = tuple.get_raw_data();
+            Ok(decode_serde(&buf[..])?)
+        },
+        None => Ok(None)
+    }
+}
+
 fn test_delete_impl(tarantool: &TarantoolContext) -> io::Result<bool> {
     let key: (u32, ) = tarantool.decode_input_params()?;
     tarantool.delete(TEST_SPACE, PRIMARY_INDEX, &key)?;
@@ -217,6 +228,7 @@ fn test_get_space_id_impl(tarantool: &TarantoolContext) -> io::Result<u32> {
 tarantool_register_stored_procs! {
     test_insert => test_insert_impl,
     test_index_get => test_index_get_impl,
+    test_index_get_raw => test_index_get_raw_impl,
     test_replace => test_replace_impl,
     test_delete => test_delete_impl,
     test_update => test_update_impl,

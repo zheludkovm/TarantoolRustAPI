@@ -50,6 +50,7 @@ local function bootstrap()
     grantRightsToFunction('libtarantool_rust_api_example.test_insert');
     grantRightsToFunction('libtarantool_rust_api_example.test_replace');
     grantRightsToFunction('libtarantool_rust_api_example.test_index_get');
+    grantRightsToFunction('libtarantool_rust_api_example.test_index_get_raw');
     grantRightsToFunction('libtarantool_rust_api_example.test_delete');
     grantRightsToFunction('libtarantool_rust_api_example.test_update');
     grantRightsToFunction('libtarantool_rust_api_example.test_upsert');
@@ -104,11 +105,13 @@ testPlan:test("replace test", function(test)
     test:is_deeply(box.space.test_space:get(1):totable(), { 1, "replaced", { a = 2, b = "c" } }, "replace value is ok")
 end)
 testPlan:test("index get test", function(test)
-    test:plan(1)
+    test:plan(2)
     init_test_spaces()
     box.space.test_space:put({ 1, 'test-row', { a = 1, b = "b" } })
     local row = capi_connection:call('libtarantool_rust_api_example.test_index_get', { 1 })
     test:is_deeply(row[1], { 1, 'test-row', { a = 1, b = "b" } }, "get value is ok")
+    local row = capi_connection:call('libtarantool_rust_api_example.test_index_get_raw', { 1 })
+    test:is_deeply(row[1], { 1, 'test-row', { a = 1, b = "b" } }, "get raw value is ok")
 end)
 testPlan:test("delete test", function(test)
     init_test_spaces()
