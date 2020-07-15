@@ -21,7 +21,7 @@ box.cfg {
     wal_dir = './db/wal',
     memtx_dir = './db/memtx',
     vinyl_dir = './db/vinyl',
-    log_nonblock = true;
+    --log_nonblock = true;
     too_long_threshold = 0.5;
     background = false;
     pid_file = 'rust.pid';

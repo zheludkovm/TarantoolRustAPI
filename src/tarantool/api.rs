@@ -13,9 +13,9 @@ use std::mem;
 use std::ptr;
 use std::slice;
 use std::str::from_utf8_unchecked;
-use tarantool::dict::*;
-use tarantool::internal::*;
-use tarantool::internal::StackValueType;
+use crate::tarantool::dict::*;
+use crate::tarantool::internal::*;
+use crate::tarantool::internal::StackValueType;
 
 ///Iterator tarantool type
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -598,7 +598,7 @@ impl TarantoolContext {
                                   space_id:u32,
                                   index_id:u32,
                                   key: &SER,
-                                  f: unsafe extern "C" fn(u32, u32, *const c_uchar, *const c_uchar, *mut (*mut c_uchar)) -> c_int) -> io::Result<Option<TarantoolTuple>>
+                                  f: unsafe extern "C" fn(u32, u32, *const c_uchar, *const c_uchar, *mut *mut c_uchar) -> c_int) -> io::Result<Option<TarantoolTuple>>
         where SER: Serialize
 
     {
@@ -630,7 +630,7 @@ impl TarantoolContext {
                                      space_name: S,
                                      index_name: S1,
                                      key: &SER,
-                                     f: unsafe extern "C" fn(u32, u32, *const c_uchar, *const c_uchar, *mut (*mut c_uchar)) -> c_int) -> io::Result<Option<TarantoolTuple>>
+                                     f: unsafe extern "C" fn(u32, u32, *const c_uchar, *const c_uchar, *mut *mut c_uchar) -> c_int) -> io::Result<Option<TarantoolTuple>>
         where SER: Serialize,
               S: AsRef<[u8]>,
               S1: AsRef<[u8]>,

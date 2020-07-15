@@ -214,7 +214,7 @@ fn test_bench_impl(tarantool: &TarantoolContext) -> io::Result<Vec<CountryData>>
             let row: CountryData = row.decode()?;
             result.push(row);
         }
-//        tarantool.fiber_yield();
+        tarantool.fiber_yield();
     };
 
     Ok(result)

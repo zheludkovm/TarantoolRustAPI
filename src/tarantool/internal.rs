@@ -59,25 +59,25 @@ extern "C" {
     pub fn box_return_tuple(ctx: *const c_uchar, tuple: *const c_uchar) -> c_int;
 
     pub fn box_index_iterator(space_id: u32, index_id: u32, p_type: c_uchar, key: *const c_uchar, key_end: *const c_uchar) -> *const c_uchar;
-    pub fn box_iterator_next(box_iterator_t: *const c_uchar, box_tuple_t: *mut (*mut c_uchar)) -> c_int;
+    pub fn box_iterator_next(box_iterator_t: *const c_uchar, box_tuple_t: *mut *mut c_uchar) -> c_int;
     pub fn box_iterator_free(box_iterator_t: *const c_uchar);
 
-    pub fn box_insert(space_id: u32, tuple: *const c_uchar, tuple_end: *const c_uchar, result: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_replace(space_id: u32, tuple: *const c_uchar, tuple_end: *const c_uchar, result: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_delete(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, result: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_update(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, ops: *const c_uchar, ops_end: *const c_uchar, index_base: i32, result: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_upsert(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, ops: *const c_uchar, ops_end: *const c_uchar, index_base: i32, result: *mut (*mut c_uchar)) -> c_int;
+    pub fn box_insert(space_id: u32, tuple: *const c_uchar, tuple_end: *const c_uchar, result: *mut *mut c_uchar) -> c_int;
+    pub fn box_replace(space_id: u32, tuple: *const c_uchar, tuple_end: *const c_uchar, result: *mut *mut c_uchar) -> c_int;
+    pub fn box_delete(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, result: *mut *mut c_uchar) -> c_int;
+    pub fn box_update(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, ops: *const c_uchar, ops_end: *const c_uchar, index_base: i32, result: *mut *mut c_uchar) -> c_int;
+    pub fn box_upsert(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, ops: *const c_uchar, ops_end: *const c_uchar, index_base: i32, result: *mut *mut c_uchar) -> c_int;
     pub fn box_truncate(space_id: u32) -> c_int;
     pub fn box_sequence_next(seq_id: u32, result: *const i64) -> c_int;
 
-    pub fn box_index_get(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_index_min(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut (*mut c_uchar)) -> c_int;
-    pub fn box_index_max(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut (*mut c_uchar)) -> c_int;
+    pub fn box_index_get(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut *mut c_uchar) -> c_int;
+    pub fn box_index_min(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut *mut c_uchar) -> c_int;
+    pub fn box_index_max(space_id: u32, index_id: u32, key: *const c_uchar, key_end: *const c_uchar, box_tuple_t: *mut *mut c_uchar) -> c_int;
     pub fn box_index_count(space_id: u32, index_id: u32, p_type: c_uchar, key: *const c_uchar, key_end: *const c_uchar) -> isize;
 
 
     pub fn box_key_def_new(fields: *const u32, types: *const u32, part_count: u32) -> *const c_uchar;
-    pub fn box_tuple_format_new(keys: *const ( *const c_uchar), key_count: u16) -> *const c_uchar;
+    pub fn box_tuple_format_new(keys: *const  *const c_uchar, key_count: u16) -> *const c_uchar;
     pub fn box_tuple_format_default() -> *const c_uchar;
     pub fn box_tuple_new(format: *const c_uchar, data: *const c_uchar, end: *const c_uchar) -> *const c_uchar;
     pub fn box_tuple_field(box_tuple_t: *const c_uchar, fieldno: c_int) -> *const c_uchar;
@@ -270,7 +270,7 @@ pub fn make_trace() -> String {
 }
 
 pub fn map_err_to_io<E>(e: E) -> io::Error
-    where E: Into<Box<error::Error + Send + Sync>>
+    where E: Into<Box<dyn error::Error + Send + Sync>>
 {
 //    error!("Error! {:?}", e.into());
     println!("Error {:?}", e.into());

@@ -1,7 +1,8 @@
 [package]
 name = "tarantool_rust_api"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["mzheludkov"]
+edition = "2018"
 
 [dependencies]
 libc = "0.2.0"
